@@ -6,71 +6,62 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import base64
 
-# Simulated async health check function
+"""Generates an async health check for a node."""
 async def node_health_status(component: str):
-    """Simulates an async health check for a component."""
-    await asyncio.sleep(0.5)  # Simulated network delay
+    await asyncio.sleep(0.5)
     return {"component": component, "status": random.choice(["Healthy", "Unhealthy"])}
 
-# BFS Traversal with Async Health Checks
+"""BFS asynchronous check on input DAG."""
 async def traverse_system(dag, start_node):
-    """Traverse the system DAG using BFS asynchronously."""
     queue = asyncio.Queue()
     await queue.put(start_node)
-    visited = set()
-    health_results = {}
+    visited_node = set()
+    health_status = {}
 
     while not queue.empty():
         tasks = []
         for _ in range(queue.qsize()):
             node = await queue.get()
-            if node in visited:
+            if node in visited_node:
                 continue
-            visited.add(node)
+            visited_node.add(node)
             tasks.append(node_health_status(node))
 
         results = await asyncio.gather(*tasks)
         for result in results:
-            health_results[result["component"]] = result["status"]
+            health_status[result["component"]] = result["status"]
             for neighbor in dag.get(result["component"], []):
-                if neighbor not in visited:
+                if neighbor not in visited_node:
                     await queue.put(neighbor)
 
-    return health_results
+    return health_status
 
-# Graph visualization function
-def visualize_graph(dag, health_results):
-    """Generate and save a DAG image with failed components highlighted."""
+"""create a DAG image with healthy/unhealthy nodes highlighted."""
+def graph_representation(dag, health_status):
     G = nx.DiGraph(dag)
     pos = nx.spring_layout(G)
     plt.figure(figsize=(8, 6))
-
-    # Color nodes: Red for unhealthy, Green for healthy
-    node_colors = ["red" if health_results[node] == "Unhealthy" else "green" for node in G.nodes]
-
-    nx.draw(G, pos, with_labels=True, node_color=node_colors, edge_color="gray", node_size=2000, font_size=10)
-
-    # Save image to file
-    plt.savefig("system_health.png")
+    node_colors = ["red" if health_status[node] == "Unhealthy" else "green" for node in G.nodes]
+    nx.draw(G, pos, with_labels=True, node_color=node_colors, edge_color="black", node_size=2000, font_size=10)
+    plt.savefig("DAG_healthcheck.png")
     plt.close()
-    print("Graph saved as 'system_health.png'")
+    print("Graph saved as 'DAG_healthcheck.png' Red as unhealthy and Green as healthy nodes")
 
-# Main function to load JSON and run BFS health check
+
 async def main():
-    """Load JSON file, process DAG, and visualize health status."""
     with open("input.json", "r") as f:
         dag = json.load(f)
 
-    start_node = list(dag.keys())[0]  # Assume first key as start node
-    health_results = await traverse_system(dag, start_node)
+    start_node = list(dag.keys())[0]  
+    health_status = await traverse_system(dag, start_node)
 
-    # Display health status
-    print("\nSystem Health Status:")
-    for component, status in health_results.items():
+ 
+    print("\nnodes health check:")
+    for component, status in health_status.items():
         print(f"{component}: {status}")
 
-    # Generate visualization
-    visualize_graph(dag, health_results)
+   
+    graph_representation(dag, health_status)
 
-# Run the script
+
 asyncio.run(main())
